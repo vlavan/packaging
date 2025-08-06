@@ -71,5 +71,5 @@ def package_build(config, target, build_dir, src_dir, version):
     license  = os.path.join(src_dir, 'LICENSE')
 
     subprocess.check_call('curl -fsSL -o vcredist.exe "%s"' % msvc_url, cwd=build_dir, shell=True)
-    subprocess.check_call('"%s\makensis.exe" /NOCD /DVERSION=%s /DSIMPLE_VERSION=%s /DTARGET=%s /DMSVC=%s /DARCH=%s /DLICENSE=%s "%s"' % (
+    subprocess.check_call('"%s\\makensis.exe" /NOCD /DVERSION=%s /DSIMPLE_VERSION=%s /DTARGET=%s /DMSVC=%s /DARCH=%s /DLICENSE=%s "%s"' % (
         nsis, '-'.join(version), _nsis_version(version[0]), target, msvc_ver, target.split('-')[-1], license, nsi_loc), shell=True, cwd=build_dir)
