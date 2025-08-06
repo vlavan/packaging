@@ -19,8 +19,23 @@ def prepare_build(config, target, build_dir, src_dir):
     import json, os, sys, subprocess
 
     msvc_ver = config['vagrant-targets'][target]['msvc_version']
-    tool_dir = os.environ['VS%sCOMNTOOLS' % msvc_ver.replace('.', '')]
-    msvc_dir = os.path.abspath(os.path.join(tool_dir, '..', '..', 'VC'))
+    tool_dir = os.environ.get('VS%sCOMNTOOLS' % msvc_ver.replace('.', ''))
+    if not tool_dir:
+    # Try using vswhere.exe as fallback
+        try:
+            vswhere_path = r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+            vs_install = subprocess.check_output([
+                vswhere_path,
+                "-latest",
+                "-products", "*",
+                "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+                "-property", "installationPath"
+            ]).decode().strip()
+            tool_dir = os.path.join(vs_install, "VC", "Auxiliary", "Build")
+        except Exception as e:
+            raise RuntimeError("Unable to locate Visual Studio tools: " + str(e))
+
+    msvc_dir = os.path.abspath(os.path.join(tool_dir, '..', '..'))
     msvc_arg = 'x86'
 
     if target.endswith('-win64'):
@@ -29,8 +44,14 @@ def prepare_build(config, target, build_dir, src_dir):
         else:
             msvc_arg = 'x86_amd64'
 
-    stdout = subprocess.check_output('("%s" %s>nul)&&"%s" -c "import json, os, sys; sys.stdout.write(json.dumps(dict(os.environ)))"' % (
-        os.path.join(msvc_dir, 'vcvarsall.bat'), msvc_arg, sys.executable), shell=True)
+    vcvars_path = os.path.join(msvc_dir, "Auxiliary", "Build", "vcvarsall.bat")
+    if not os.path.exists(vcvars_path):
+        raise FileNotFoundError(f"vcvarsall.bat not found at {vcvars_path}")
+    
+    stdout = subprocess.check_output(
+    '("%s" %s>nul)&&"%s" -c "import json, os, sys; sys.stdout.write(json.dumps(dict(os.environ)))"' %
+    (vcvars_path, msvc_arg, sys.executable), shell=True)
+
 
     os.environ.update(json.loads(stdout if isinstance(stdout, str) else stdout.decode('utf-8')))
 
